@@ -1,0 +1,24 @@
+---
+const { title, description, icon } = Astro.props;
+---
+<style>
+  .card {
+    background-color: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(252, 251, 251, 0.5);
+    border-radius: 8px;
+    padding: 0.1rem 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    line-height: 1;
+    height: 100px;
+    width: 275px;
+  }
+
+  .card:hover {
+    transform: scale(1.02);
+    transition: transform 0.4s ease-in-out;
+  }
+</style>
+<div class="card" data-title="{title}">
+  <h3>{title}<span>{icon}</span></h3>
+  <span data-description>{description}</span>
+</div>

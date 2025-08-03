@@ -1,16 +1,204 @@
 ---
+import '../styles/global.css';
+import Card from '../components/Card.astro';
 
+const primaryColor = 'rgb(16, 16, 16)';
+const secondaryColor = 'rgb(242, 240, 230)';
+
+// Initial server info for static HTML generation
+const initialServerInfo = {
+	status: 'Checking...',
+	map: 'Checking...',
+	players: 'Checking...'
+};
+
+// Ideas:
+// - Border is a rainbow loading bar that goes around when server is starting up, and green when online, red when offline
+// - Pulsing animation on the container when loading
+// - Text that says Initializing... when loading, and then changes to Online or Offline. And the dots go 1 2 3 and then back to 1 when loading
+// - Map selector passed in query param
+// - Password input field that is required to start the server, passed to api
 ---
+<style define:vars={{ primaryColor, secondaryColor }}>
+	body {
+		background-color: var(--primaryColor);
+		color: var(--secondaryColor);
+		display: grid;
+		place-items: center;
+	}
 
+	.main-container {
+		background-color: rgba(176, 153, 70, 0.433);
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		padding: 1rem 2rem 1rem 2rem;
+		width: 600px;
+		height: 360px;	
+		border-radius: 10px;
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+		/* animation: pulse 6s infinite; */
+	}
+
+	.header {
+		margin-bottom: 0.5rem;
+		width: 100%;
+		border-bottom: 1px solid var(--primaryColor);
+		line-height: 0.5;
+	}
+
+	.card-display {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 1rem;
+		margin-bottom: 1rem;
+	}
+
+	.start-button {
+		background-color: var(--primaryColor);
+		color: var(--secondaryColor);
+		border: 1px solid rgba(252, 251, 251, 0.5);
+		border-radius: 8px;
+		padding: 0.5rem 1rem;
+		cursor: pointer;
+		font-size: 1rem;
+		font-weight: bold;
+	}
+	.start-button:disabled {
+		background-color: rgba(128, 128, 128, 0.5);
+		cursor: not-allowed;
+	}
+	.start-button:hover:not(:disabled) {
+		background-color: rgba(128, 128, 128, 0.7);
+	}
+
+	@keyframes pulse {
+			0% {
+				transform: scale(1);
+			}
+			50% {
+				transform: scale(1.05);
+			}
+			100% {
+				transform: scale(1);
+			}
+		}
+</style>
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
+		<title>Source Surf</title>
 	</head>
 	<body>
-		<h1>Astro</h1>
+		<div class="main-container">
+			<div class="header">
+				<h1>Fancy Surf</h1>
+			</div>
+			<div class="card-display">
+				<Card title="Status" description={initialServerInfo.status} icon="🌐" />
+				<Card title="Map" description={initialServerInfo.map} icon="🗺️" />
+				<Card title="Players" description={initialServerInfo.players} icon="👥" />
+				<button type="button" class="start-button" disabled=true>Start</button>
+			</div>
+			
+			<p>Powered by <a href="https://github.com/tomschuu/source-surf">Source Surf</a></p>
+		</div>
 	</body>
 </html>
+<script>
+	import { fromEvent, map, tap, catchError, of, interval, mergeMap } from 'rxjs';
+	import { fromFetch } from 'rxjs/fetch';
+
+	const endpoints = Object.freeze({
+		startServer: 'https://startsurfservervm-d9c8hseahzdyfqau.westus3-01.azurewebsites.net/api/StartSurfVM?',
+		getServerStatus: 'https://startsurfservervm-d9c8hseahzdyfqau.westus3-01.azurewebsites.net/api/GetServerStatus?'
+	});
+
+	type ServerStatusResponse = {
+		online: boolean;
+		addr?: string;
+		steamid?: string;
+		appid?: number;
+		gamedir?: string;
+		region?: number;
+		secure?: boolean;
+		lan?: boolean;
+		error?: string;
+	};
+
+	function updateServerInfo(status: string, map: string, players: number) {
+		const statusCard = document.querySelector('[data-title="Status"] [data-description]');
+		const mapCard = document.querySelector('[data-title="Map"] [data-description]');
+		const playersCard = document.querySelector('[data-title="Players"] [data-description]');
+		
+		if (statusCard) statusCard.textContent = status;
+		if (mapCard) mapCard.textContent = map;
+		if (playersCard) playersCard.textContent = players.toString();
+	}
+
+	function checkServerStatus() {
+		console.log('Checking server status...');
+		
+		fromFetch(endpoints.getServerStatus)
+			.pipe(
+				map(response => {
+					if (!response.ok) {
+						throw new Error('Server response was not ok');
+					}
+					return response.json();
+				}),
+				mergeMap((jsonPromise) => 
+					jsonPromise.then((data) => data as ServerStatusResponse)
+				),
+				tap((data: ServerStatusResponse) => {
+					console.log('Server status response:', data);
+					
+					if (data.online) {
+						updateServerInfo('online', 'Unknown', 0);
+						console.log('Server is online!', data);
+					} else {
+						updateServerInfo('offline', 'Unknown', 0);
+						console.log('Server is offline');
+					}
+				}),
+				catchError(error => {
+					console.error('Error fetching server status:', error);
+					updateServerInfo('error', 'Unknown', 0);
+					return of(null);
+				})
+			)
+			.subscribe();
+	}
+
+	checkServerStatus();
+
+	interval(6000000).subscribe(() => {
+		checkServerStatus();
+	});
+
+	const startButton = document.querySelector('.start-button');
+	if (startButton) {
+		fromEvent(startButton, 'click').subscribe(() => {
+			fromFetch(endpoints.startServer)
+				.pipe(
+					map(response => {
+						if (!response.ok) {
+							throw new Error('Network response was not ok');
+						}
+						return response.json();
+					}),
+					tap(() => {
+						console.log('Surf server started successfully');
+						setTimeout(() => checkServerStatus(), 10000);
+					}),
+					catchError((error) => {
+						console.error('Error starting surf server:', error);
+						return of(null);
+					})
+				).subscribe();
+		});
+	}
+</script>
