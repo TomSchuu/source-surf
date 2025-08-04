@@ -10,6 +10,10 @@
   },
   "dependencies": {
     "astro": "^5.12.8",
+    "astro-icon": "^1.1.5",
     "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@iconify-json/mdi": "^1.2.3"
   }
 }

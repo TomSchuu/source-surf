@@ -1,0 +1,45 @@
+---
+// Initial state at build time - will be updated by JavaScript
+const initialStatus = 'loading';
+---
+
+<style>
+  .start-button {
+    width: 100%;
+    color: rgb(16, 16, 16);
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: all 0.3s ease;
+  }
+  
+  .start-button:disabled {
+    background-color: rgba(128, 128, 128, 0.5);
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  
+  .start-button:hover:not(:disabled) {
+    background-color: rgba(135, 251, 3, 0.9);
+    transform: translateY(-1px);
+  }
+
+  .start-button.loading {
+    background-color: rgba(255, 165, 0, 0.8);
+  }
+
+  .start-button.online {
+    background-color: rgba(128, 128, 128, 0.5);
+  }
+
+  .start-button.offline {
+    background-color: rgb(153, 229, 39);
+  }
+</style>
+
+<button data-start-button type="button" class="start-button loading" data-status={initialStatus} disabled>
+  <span data-button-text>Checking...</span>
+</button>

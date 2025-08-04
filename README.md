@@ -1,3 +1,3 @@
 # source-surf
 
-Start and monitor my private hosted source surf server
+Start and monitor my privately hosted source surf server

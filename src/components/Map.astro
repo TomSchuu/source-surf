@@ -1,0 +1,70 @@
+---
+import { Image } from "astro:assets";
+import { Icon } from "astro-icon/components";
+import defaultMapImage from "../images/default.png";
+
+const images = import.meta.glob('../images/*.png', { eager: true });
+
+const mapImages: Record<string, any> = Object.fromEntries(
+  Object.entries(images).map(([path, module]) => {
+    const fileName = path.split('/').pop()?.split('.')[0];
+    return [fileName, (module as any).default];
+  })
+);
+
+// Convert mapImages to URLs that can be used client-side
+const clientMapImages = Object.fromEntries(
+  Object.entries(mapImages).map(([name, imageModule]) => [
+    name, 
+    imageModule.src // Astro's Image objects have a .src property with the optimized URL
+  ])
+);
+---
+<style>
+  .map {
+    padding: 0 0.4rem 0.5rem 0.4rem;
+    line-height: 1;
+  }
+
+  .map-name {
+    position: absolute;
+    font-weight: semi-bold;
+    bottom: -5px;
+    left: 12px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+    font-size: 0.8rem;
+    z-index: 2;
+    pointer-events: none;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+  }
+
+  .map-title {
+    display: flex;
+    align-items: center;
+    margin: 0.5rem 0;
+  }
+
+  .map-image-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 340px;
+    height: 100px;
+  }
+</style>
+<div class="map" data-map-images={JSON.stringify(clientMapImages)}>
+  <p class="map-title"><Icon name="mdi:map" size={24} /> Current Map</p>
+  <div class="map-image-wrapper">
+    <Image
+      src={defaultMapImage}
+      alt="placeholder map image"
+      width={340}
+      height={100}
+      loading="lazy"
+      style="display: block; border-radius: 8px;"
+      data-map-image
+    />
+    <p class="map-name" data-map-name>offline</p>
+  </div>
+</div>

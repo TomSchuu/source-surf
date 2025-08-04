@@ -1,24 +1,56 @@
 ---
-const { title, description, icon } = Astro.props;
+import Spinner from './Spinner.astro';
+import { Icon } from 'astro-icon/components';
+
+const { title, icon } = Astro.props;
 ---
 <style>
   .card {
-    background-color: rgba(0, 0, 0, 0.8);
-    border: 1px solid rgba(252, 251, 251, 0.5);
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--primaryBackground);
     border-radius: 8px;
-    padding: 0.1rem 0.5rem;
+    padding: 0 1rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    line-height: 1;
-    height: 100px;
-    width: 275px;
   }
 
   .card:hover {
     transform: scale(1.02);
-    transition: transform 0.4s ease-in-out;
+    transition: transform 0.2s ease-in-out;
+  }
+
+  .card-title {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .spinner {
+    display: none;
+  }
+
+  [data-description] {
+    color: rgba(255, 255, 255, 0.9);
+    display: none;
+    padding: 0.3rem 0.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    font-size: 0.9rem;
+    font-weight: lighter;
+  }
+
+  [data-description].online {
+    background-color: rgba(0, 255, 0, 0.358);
+  }
+
+  [data-description].offline {
+    background-color: var(--secondaryBackground);
   }
 </style>
-<div class="card" data-title="{title}">
-  <h3>{title}<span>{icon}</span></h3>
-  <span data-description>{description}</span>
+<div class="card" data-title={title}>
+  <p class="card-title"><Icon name={icon} size={24}/>{title}</p>
+  <Spinner />
+  <p data-description>test</p>
 </div>
