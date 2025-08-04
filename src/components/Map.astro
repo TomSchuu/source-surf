@@ -12,11 +12,10 @@ const mapImages: Record<string, any> = Object.fromEntries(
   })
 );
 
-// Convert mapImages to URLs that can be used client-side
 const clientMapImages = Object.fromEntries(
   Object.entries(mapImages).map(([name, imageModule]) => [
     name, 
-    imageModule.src // Astro's Image objects have a .src property with the optimized URL
+    imageModule.src
   ])
 );
 ---

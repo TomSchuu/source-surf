@@ -242,8 +242,10 @@ if (startButton) {
         mergeMap((responseText) => responseText.then((text) => text as string)),
         tap((responseText) => {
           console.log('Surf server started successfully:', responseText);
-          setTimeout(() => checkServerStatus(), 15000);
-          isStartingServer = false;
+          setTimeout(() => {
+            isStartingServer = false;
+            checkServerStatus();
+          }, 15000);
         }),
         catchError((error) => {
           console.error('Error starting surf server:', error);
