@@ -7,7 +7,7 @@ import { Icon } from 'astro-icon/components';
 
 const primaryBackground = 'rgb(26, 26, 26)';
 const secondaryBackground = 'rgb(42, 42, 42)';
-const primaryAccent = 'rgb(176, 153, 70)';
+const primaryAccent = 'rgba(0, 255, 0, 0.5)';
 const textColor = 'rgb(242, 240, 230)';
 
 // Ideas:
@@ -34,7 +34,11 @@ const textColor = 'rgb(242, 240, 230)';
 		height: 450px;	
 		border-radius: 10px;
 		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
-		/* animation: pulse 6s infinite; */
+	}
+
+	.main-container.loading {
+		box-shadow: 0px 0px 9px 4px #747DE8;
+    animation: glow 1.5s linear infinite alternate;
 	}
 
 	.header {
@@ -87,6 +91,12 @@ const textColor = 'rgb(242, 240, 230)';
 				transform: scale(1);
 			}
 		}
+
+	@keyframes glow {
+    to {
+        box-shadow: 0px 0px 15px 10px #535FED;
+    }
+	}
 </style>
 <html lang="en">
 	<head>
@@ -97,7 +107,7 @@ const textColor = 'rgb(242, 240, 230)';
 		<title>Source Surf</title>
 	</head>
 	<body>
-		<main class="main-container">
+		<main class="main-container loading" data-main-container>
 			<header class="header">
 				<h2>Fancy Surf</h2>
 				<Icon data-connect class="connect-icon" name="mdi:play-circle" size={28} />
