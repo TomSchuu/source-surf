@@ -245,7 +245,7 @@ if (startButton) {
           setTimeout(() => {
             isStartingServer = false;
             checkServerStatus();
-          }, 15000);
+          }, 27000);
         }),
         catchError((error) => {
           console.error('Error starting surf server:', error);
