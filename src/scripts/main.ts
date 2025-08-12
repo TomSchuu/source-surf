@@ -1,4 +1,15 @@
-import { fromEvent, map, tap, catchError, of, interval, mergeMap } from 'rxjs';
+import {
+  fromEvent,
+  map,
+  tap,
+  catchError,
+  of,
+  interval,
+  mergeMap,
+  switchMap,
+  Subscription,
+  takeWhile,
+} from 'rxjs';
 import { fromFetch } from 'rxjs/fetch';
 
 const endpoints = Object.freeze({
@@ -7,6 +18,9 @@ const endpoints = Object.freeze({
   getServerStatus:
     'https://startsurfservervm-d9c8hseahzdyfqau.westus3-01.azurewebsites.net/api/GetServerStatus?',
 });
+
+const STATUS_CHECK_INTERVAL = 60000;
+const STARTUP_CHECK_INTERVAL = 5000;
 
 type ServerStatusResponse = {
   online: boolean;
@@ -18,12 +32,11 @@ type ServerStatusResponse = {
   uptime: string;
 };
 
-function updateServerInfo(
-  status: 'online' | 'offline' | 'loading',
-  map: string,
-  players: number,
-  maxPlayers: number,
-  uptime: string
+type Status = 'online' | 'offline' | 'loading';
+
+function updateServerState(
+  status: Status,
+  payload?: Omit<ServerStatusResponse, 'online' | 'players' | 'name'>
 ): void {
   const statusCard = document.querySelector(
     '[data-title="Status"] [data-description]'
@@ -34,27 +47,26 @@ function updateServerInfo(
   const uptimeCard = document.querySelector(
     '[data-title="Uptime"] [data-description]'
   ) as HTMLElement;
-  const connectIcon = document.querySelector('[data-connect]') as HTMLElement;
   const mainContainer = document.querySelector(
     '[data-main-container]'
   ) as HTMLElement;
-
-  const spinners = document.querySelectorAll('[data-spinner]');
+  const spinners = document.querySelectorAll(
+    '[data-spinner]'
+  ) as NodeListOf<HTMLElement>;
 
   const isLoading = status === 'loading';
 
+  // update loading spinners
   spinners.forEach((spinner) => {
-    if (spinner) {
-      (spinner as HTMLElement).style.display = isLoading ? 'block' : 'none';
-    }
+    if (spinner) spinner.style.display = isLoading ? 'block' : 'none';
   });
 
+  // update status, players, and uptime info pills
   [statusCard, playersCard, uptimeCard].forEach((card) => {
-    if (card) {
-      (card as HTMLElement).style.display = isLoading ? 'none' : 'block';
-    }
+    if (card) card.style.display = isLoading ? 'none' : 'block';
   });
 
+  // update main container loading animation
   if (mainContainer) {
     switch (status) {
       case 'loading':
@@ -66,24 +78,38 @@ function updateServerInfo(
     }
   }
 
+  // update map, status, players, and uptime cards
   if (!isLoading) {
     if (statusCard) {
       statusCard.textContent = status;
       statusCard.className = status;
     }
     if (playersCard) {
-      playersCard.textContent = `${players} / ${maxPlayers}`;
+      playersCard.textContent = `${payload?.playerCount ?? 0} / ${
+        payload?.maxPlayers ?? 0
+      }`;
       playersCard.className = status;
     }
     if (uptimeCard) {
-      uptimeCard.textContent = uptime;
+      uptimeCard.textContent = payload?.uptime ?? 'Unknown';
       uptimeCard.className = status;
     }
 
-    if (map !== 'Unknown' && map !== 'loading') {
-      updateMapDisplay(map);
+    if (
+      payload?.map &&
+      payload.map !== 'Unknown' &&
+      payload.map !== 'loading'
+    ) {
+      updateMapDisplay(payload.map);
     }
   }
+
+  updateConnectButton(status);
+  updateStartButton(status);
+}
+
+function updateConnectButton(status: Status) {
+  const connectIcon = document.querySelector('[data-connect]') as HTMLElement;
 
   if (connectIcon) {
     switch (status) {
@@ -98,11 +124,9 @@ function updateServerInfo(
         break;
     }
   }
-
-  updateStartButton(status);
 }
 
-function updateStartButton(status: 'offline' | 'loading' | 'online') {
+function updateStartButton(status: Status) {
   const button = document.querySelector(
     '[data-start-button]'
   ) as HTMLButtonElement;
@@ -126,7 +150,7 @@ function updateStartButton(status: 'offline' | 'loading' | 'online') {
       button.disabled = true;
       button.classList.add('loading');
       button.setAttribute('data-status', 'loading');
-      buttonText.textContent = 'Starting...';
+      buttonText.textContent = 'Loading...';
       break;
 
     case 'online':
@@ -156,101 +180,100 @@ function updateMapDisplay(newMapName: string) {
 
     const imageSrc = mapImages[newMapName] || mapImages['default'];
 
-    if (imageSrc) {
-      mapImage.src = imageSrc;
-      mapImage.alt = newMapName;
-    } else {
-      console.warn(`No image found for map: ${newMapName}`);
-    }
+    mapImage.src = imageSrc;
+    mapImage.alt = newMapName;
   }
 }
 
-let isStartingServer = false;
+let isServerStarting = false;
+let statusCheckSubscription$: Subscription;
 
-function checkServerStatus() {
-  console.log('Checking server status...');
-
-  if (isStartingServer) {
-    console.log('Skipping status check - server is starting');
-    return;
+function checkServerStatus(updateUI = false) {
+  if (!isServerStarting && updateUI) {
+    updateServerState('loading');
   }
 
   fromFetch(endpoints.getServerStatus)
     .pipe(
-      tap(() => {
-        if (!isStartingServer) {
-          updateServerInfo('loading', 'Unknown', 0, 0, 'offline');
-        }
-      }),
-      map((response) => {
+      switchMap((response) => {
         if (!response.ok) {
-          throw new Error('Server response was not ok');
+          throw new Error('Server status was not ok');
         }
+
         return response.json();
       }),
-      mergeMap((jsonPromise) =>
-        jsonPromise.then((data) => data as ServerStatusResponse)
-      ),
       tap((data: ServerStatusResponse) => {
-        if (!isStartingServer) {
-          if (data.online) {
-            updateServerInfo(
-              data.online ? 'online' : 'offline',
-              data.map,
-              data.playerCount,
-              data.maxPlayers,
-              data.uptime
-            );
-            console.log('Server is online');
-          } else {
-            updateServerInfo('offline', 'offline', 0, 0, 'offline');
-            console.log('Server is offline');
+        if (data.online) {
+          updateServerState('online', data);
+          isServerStarting = false;
+        } else {
+          if (!isServerStarting && updateUI) {
+            updateServerState('offline', data);
           }
         }
       }),
       catchError((error) => {
-        console.error('Error fetching server status:', error);
-        if (!isStartingServer) {
-          updateServerInfo('offline', 'offline', 0, 0, 'offline');
+        if (!isServerStarting && updateUI) {
+          updateServerState('offline');
         }
+        isServerStarting = false;
         return of(null);
       })
     )
     .subscribe();
 }
 
-checkServerStatus();
+function startNormalPolling() {
+  statusCheckSubscription$ = interval(STATUS_CHECK_INTERVAL).subscribe(() => {
+    checkServerStatus(true);
+  });
+}
 
-interval(60000).subscribe(() => {
-  checkServerStatus();
-});
+function startStartupPolling() {
+  statusCheckSubscription$ = interval(STARTUP_CHECK_INTERVAL)
+    .pipe(
+      tap(() => checkServerStatus()),
+      takeWhile(() => isServerStarting, true)
+    )
+    .subscribe({
+      complete: () => {
+        startNormalPolling();
+      },
+    });
+}
+
+checkServerStatus(true);
+startNormalPolling();
 
 const startButton = document.querySelector('[data-start-button]');
 if (startButton) {
   fromEvent(startButton, 'click').subscribe(() => {
-    isStartingServer = true;
-    updateServerInfo('loading', 'loading', 0, 0, 'loading');
+    if (isServerStarting) return;
+
+    isServerStarting = true;
+    updateServerState('loading');
+
+    if (statusCheckSubscription$) {
+      statusCheckSubscription$.unsubscribe();
+    }
 
     fromFetch(endpoints.startServer)
       .pipe(
-        map((response) => {
+        switchMap((response) => {
           if (!response.ok) {
             throw new Error('Network response was not ok');
           }
           return response.text();
         }),
-        mergeMap((responseText) => responseText.then((text) => text as string)),
         tap((responseText) => {
-          console.log('Surf server started successfully:', responseText);
-          setTimeout(() => {
-            isStartingServer = false;
-            checkServerStatus();
-          }, 27000);
+          console.log('Server starting response:', responseText);
+          startStartupPolling();
         }),
         catchError((error) => {
           console.error('Error starting surf server:', error);
-          isStartingServer = false;
+          isServerStarting = false;
           updateStartButton('offline');
+          startNormalPolling();
           return of(null);
         })
       )
