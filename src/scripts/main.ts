@@ -91,7 +91,7 @@ function updateServerState(
       playersCard.className = status;
     }
     if (uptimeCard) {
-      uptimeCard.textContent = payload?.uptime ?? 'Unknown';
+      uptimeCard.textContent = payload?.uptime ?? 'offline';
       uptimeCard.className = status;
     }
 
